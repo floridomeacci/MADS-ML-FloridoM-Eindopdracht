@@ -1,150 +1,77 @@
-## Kader voor het uitvoeren van experimenten
-- Ik wil elk netwerk (Dutch, Roberta, Combined) apart trainen met dezelfde data en seed om grip te krijgen op de resultaten.
+Florido Meacci – 02/02/2026 
+https://github.com/floridomeacci/MADS-ML-FloridoM 
 
-## Startpunt — vijf experimenten
-- 01 Baseline: middel alle chunks tot één vector; een klein neuraal netwerk voorspelt 32 labels.
-- 02 Attention: leer welke chunks belangrijk zijn en weeg ze voordat je voorspelt. Handig als slechts delen van een document het signaal bevatten.
-- 03 BiLSTM: lees chunks op volgorde met een bidirectionele RNN, dan classificeer. Vangt sequentie/structuur maar is gevoelig voor padding en heeft meestal meer epochs nodig.
-- 04 Highway: behoud het meeste van het originele signaal en gebruik een poort om alleen nuttige veranderingen toe te voegen. Stabiele prestaties vroeg in training met minder fouten.
-- 05 MoE: gebruik meerdere kleine expert-netwerken en een poort die de beste twee per document kiest. Kan specialiseren naar verschillende patronen maar heeft tuning en trainingstijd nodig.
+Grip op zeldzame juridische klassen 
 
-Dutch-Baseline       0.195        0.783        0.674        0.015       
-Roberta-Baseline     0.177        0.787        0.673        0.014       
-Combined-Baseline    0.175        0.789        0.679        0.014       
-Dutch-Attention      0.405        0.845        0.747        0.011       
-Roberta-Attention    0.343        0.827        0.726        0.012       
-Combined-Attention   0.336        0.821        0.720        0.013       
-Dutch-BiLSTM         0.433        0.865        0.773        0.010       
-Roberta-BiLSTM       0.351        0.841        0.754        0.011       
-Combined-BiLSTM      0.260        0.800        0.717        0.014       
-Dutch-Highway        0.429        0.845        0.749        0.011       
-Roberta-Highway      0.415        0.845        0.747        0.011       
-Combined-Highway     0.375        0.843        0.735        0.012       
-Dutch-MoE            0.209        0.788        0.673        0.014       
-Roberta-MoE          0.192        0.785        0.669        0.014       
-Combined-MoE         0.242        0.791        0.688        0.015   
+Toen ik de opdracht starten vroeg ik mij al snel af waarom er bepaalde juridische klassen structureel genegeerd werden door het model, ondankds dat de architectuur steeds beter wordt? 
 
-- Dutch embeddings presteren beter dan Roberta en Combined bij alle architecturen
-- Bij de individuele klasse-data zien we dat de slechtst presterende klassen (19, 23, 24, 20, 18, 25, 31, 26, 21, 28, 10, 30, 13, 29 & 8) veel minder voorbeelden bevatten.
-- En waarom presteert het gecombineerde model (afgeleid van beide juridische modellen) niet beter dan de losse modellen?
+Ik besloot dit onderzoek strikt gecontroleerd aan te pakken. Elk netwerk, Dutch, RoBERTa en een gecombineerd embedding-model, trainde ik afzonderlijk, met exact dezelfde data en random seed. In de hoop zo beter te omvatten waar de verschillen vandaan kwamen. 
 
-## Kunnen de klassen met veel voorbeelden de klassen met weinig voorbeelden overschaduwen?
+Eerste hypothese: architectuur is de bottleneck 
 
-- Hoe presteert het model als ik alleen train op de slechtst presterende klassen?
-- Hoe presteert het model als ik alle klassen evenveel input geef?
+Mijn startpunt bestond uit de vijf architecturen uit de gtihub, oplopend in complexiteit: een eenvoudige baseline (gemiddelde van chunks), attention, BiLSTM, highway-netwerken en een Mixture-of-Experts. 
 
-## Experiment 06 — Zeldzame Klassen
-- 06 Rare Classes: filter de dataset zodat alleen documenten met zeldzame klassen overblijven (15 van de 32), en train een BiLSTM alleen daarop — om te testen of de vele "makkelijke" voorbeelden de schaarse klassen verdringen. 
+Complexere architecturen zoals BiLSTM en attention leverden duidelijke winst op ten opzichte van de baseline, vooral in Macro-F1. Het gecombineerde model presteerde consistent beter dan zowel Dutch als RoBERTa afzonderlijk. Door beide embedding-types te combineren presteerd het model beter. 
 
-## Experiment 07 — Minimum Klassen
-- 07 Balanced Classes: neem van elke klasse evenveel voorbeelden (het minimum), zodat alle 32 klassen gelijk vertegenwoordigd zijn — om te testen of de scheve verdeling het probleem is of gewoon te weinig data.
+Toen ik inzoomde op de individuele klasse prestaties, viel iets anders op. De slechtst presterende klassen waren de klassen met de minste voorbeelden. Velen werden simpelweg nooit voorspeld omdat er verreweg minder data voor was. 
 
-## Vergelijking BiLSTM Strategieën (Heatmap)
-- Comparison Heatmap: vergelijk E03 (volledig), E06 (zeldzaam) en E07 (gebalanceerd) in een heatmap per embedding type.
-- Conclusie: Combined + gebalanceerd (E07) leert 9 klassen waaronder zeldzame klasse 20 — meer dan E03 (11 frequente) of E06 (5 klassen).
-- Trade-off: micro F1 daalt van 80% naar 54%, maar het model herkent nu klassen die voorheen genegeerd werden.
+ 
+ 
+ 
 
-## Experiment 08 — PCA + Trigram Preprocessing
-- 08 PCA + Trigram: pas PCA toe om de 768-dim embeddings te reduceren naar 256 dimensies, en voeg 100 karakter-trigram features toe.
-- Hypothese: PCA verwijdert ruis terwijl het signaal behouden blijft; trigrams vangen morfologische patronen in Nederlandse juridische tekst (voorvoegsels, achtervoegsels) die transformers mogelijk missen.
+ 
+ 
+ 
+ 
+Tweede hypothese: frequente klassen verdringen zeldzame klassen 
 
-## Experiment 09 — Advanced PCA + Trigram met Skip Connections
-- 09 Advanced: combineer Dutch PCA (256) + RoBERTa PCA (256) + Trigrams (100) = 612 features, met een dieper netwerk met skip connections.
-- Resultaat: Combined wint nu met Macro-F1 0.3862 en Micro-F1 0.8520 — beter dan Dutch (0.3776) en RoBERTa (0.3031).
-- Waarom: multimodale features vullen elkaar aan, PCA verwijdert ruis, skip connections stabiliseren training.
-- 14 klassen blijven ongedetecteerd door te weinig voorbeelden.
+Hier begon het echte probleem zichtbaar te worden. Goed presterende klassen hadden duizenden voorbeelden, terwijl de laag preseterende klasses er minder hadden. Mijn vermoeden was dat het model leerde voorspellen wat statistisch het meest voorkomt. Om dit te testen draaide ik het probleem om. In Experiment 06 trainde ik een BiLSTM uitsluitend op documenten die zeldzame klassen bevatten. Het resultaat was nog steeds slecht: het model herkende nu slechts een handvol klassen. Zeldzame klassen alleen trainen bleek niet genoeg, er was simpelweg te weinig data. 
 
-## Experiment 10 — Adaptive Oversampling
+In Experiment 07 ging ik een stap verder en forceerde ik balans: van elke klasse maakte ik evenveel voorbeelden. De Micro-F1 kelderde, maar iets veranderde. Het gecombineerde embedding-model begon nu zeldzame klassen te leren die het voorheen volledig negeerde. Dit was een keerpunt. Het probleem was niet alleen dat sommige klassen zeldzaam waren, het probleem was dat ze overschaduwd werden. 
 
-Klasse 17 heeft 6470 docs, klasse 19 maar 43 — het model negeert zeldzame klassen. Ik kopieer zeldzame documenten zodat elke klasse ~3000 samples heeft (bijv. klasse 19 × 70 = 3010).
+Derde hypothese: representatie is te ruisachtig 
 
-**Resultaat:** Macro-F1 verdubbeld (0.38 → 0.64), 30/31 klassen gedetecteerd (was 17). Klasse 19 haalt nu F1=0.91.
+Tot nu toe had ik alleen aan de buitenkant van het probleem gesleuteld: data en architectuur. In Experiment 08 keek ik naar de embeddings zelf. Ik reduceerde de 768-dimensionale vectoren met de PCA trigram techniek. De gedachte hierachter was dat PCA ruis zou verwijderen en trigrams patronen zou vangen die transformers mogelijk missen. Dat werkte, maar pas echt in Experiment 09, waar ik Dutch PCA, RoBERTa PCA en trigrams combineerde in één netwerk met skip connections. Voor het eerst won het gecombineerde model overtuigend. 
 
-## Experiment 11 — Hyperparameter Tuning
+Mijn conclusie hier was duidelijk: gecombineerde embeddings werken vooral als je ze dwingt elkaar aan te vullen met skip layers in plaats van elkaar te verdringen. 
 
-Met adaptive oversampling als basis testte ik twee tuning-methodes:
-- **Grid Search:** 24 combinaties van hidden layers, dropout en learning rate
-- **Random Search:** 15 trials met random parameters (incl. batch size, weight decay, batchnorm, LR scheduler)
+Vierde hypothese: het model ziet zeldzame klassen simpelweg te weinig 
 
-**Resultaat:** Random Search wint met Macro-F1 = **0.7058** (+10% vs E10).
-- Beste params: hidden=[128,128], dropout=0.21, lr=0.0003, batch_size=16, batchnorm=True, StepLR scheduler
-- Conclusie: kleinere netwerken met batchnorm en LR decay presteren beter dan grote netwerken.
+In Experiment 10 ging ik nog een stapje verder. Ik oversamplede zeldzame klassen tot ongeveer 3000 voorbeelden per klasse. Het effect werkte. De Macro-F1 steeg van 0.16 naar 0.64, een verviervoudiging. Klassen die tot nu toe “onzichtbaar” waren, haalden ineens F1-scores boven de 0.9. Voor het eerst werden vrijwel alle klassen gedetecteerd.In Experiment 11 deed ik daar bovenop: hyperparameter tuning (grid search, random search en Bayesian optimalisatie) om de beste modelconfiguratie te vinden. Dit leverde een Macro-F1 van 0.70 op. 
 
-## Experiment 12 — Final Model (100 epochs)
+In Experiment 12 paste ik deze beste hyperparameters toe. De Macro-F1 kwam uit op 0.69. In Experiment 13 probeerde ik agressiever te oversamplen (6000 voorbeelden voor struggling klassen). Dit leverde verdere verbetering op naar 0.72 en detecteerde nu 30 klassen. 
 
-Beste E11 configuratie getraind voor 100 epochs met early stopping (patience=15).
+Maar waarom bleef klasse 23 hardnekkig steeds op F1=0 steken? Ik ging dieper in op deze klasse en kwam tot de conclusie dat oversampling alleen niet genoeg is, sommige klassen vereisen een andere beslissingsstrategie. In dit geval werd klasse 23 steeds overschaduwd door best presterende klasses in gepaarde data 
 
-**Resultaat:** Macro-F1 = **0.7236**, Micro-F1 = 0.8999, 30/31 klassen.
-- Early stop bij epoch 28
-- Klasse 22 haalt perfecte F1=1.0
-- Zwakke klassen: 5 (0.53), 8 (0.40), 21 (0.48), **23 (0.00)**, 24 (0.60), 26 (0.17), 30 (0.56)
+. 
+ 
 
-## Experiment 13 — Aggressive Oversampling
+ 
 
-Hypothese: meer samples voor zwakke klassen (target 6000 i.p.v. 3000).
+Vijfde hypothese: het probleem zit niet in leren, maar in beslissen 
 
-**Resultaat:** MISLUKT — Macro-F1 daalde naar 0.7062, zwakke klassen werden SLECHTER:
-- Klasse 8: 0.40 → 0.29 ↓
-- Klasse 21: 0.48 → 0.40 ↓  
-- Klasse 23: 0.00 → 0.00 (blijft kapot)
+Tot dit punt had ik alles geprobeerd om het model beter te laten leren. Maar wat als het model het eigenlijk al weet, alleen niet durft te beslissen? Dat bracht me bij thresholds. 
 
-**Conclusie:** Oversampling is niet de oplossing. Klasse 23 co-occurreert sterk met dominante klassen 17 (31.5%) en 12 (24.1%) — deze "stelen" de voorspellingen.
+In Experiment 14 paste ik focal loss toe en lagere trehsholds voor de zeldzame klassen. Voor het eerst werd klasse 23 überhaupt voorspeld. De score was laag, maar het werkte! Het model zag de klasse, maar kwam nog niet boven de standaard 0.5-grens. 
 
-## Experiment 14 — Focal Loss + Adaptive Thresholds
+In Experiment 15 verbeterde ik dit doordat ik het model normaal trainde en achteraf per klasse de beslissingsdrempel optimaliseerde. Dit bleek zeer effectief. Macro-F1 steeg opnieuw, en meerdere probleemklassen werden ineens stabiel herkend. 
 
-Hypothese: focal loss focust op moeilijke voorbeelden, lagere drempelwaarde voor "gestolen" klassen.
+Laatste stap: stabiliteit en consensus 
 
-**Resultaat:** Klasse 23 eindelijk gedetecteerd! F1=0.125 met threshold 0.2.
-- Macro F1 = 0.7044 (lager door trade-off)
-- Focal loss helpt, maar thresholds zijn belangrijker
+In Experiment 16 combineerde ik threshold-optimalisatie met een ensemble van meerdere modellen. Dit dempte ruis en maakte de thresholds robuuster. Het eindpunt was Experiment 17, vijf modellen, met gebalanceerde oversampling, compacte architectuur, learning-rate decay en per-klasse geoptimaliseerde thresholds. 
 
-## Experiment 15 — Threshold Optimization ⭐
+Het resultaat was het beste tot nu toe: hoogste Macro-F1 (0.76), stabiele Micro-F1 (0.91), alle 31 klassen gedetecteerd. Zelfs klasse 23, die in elk vroeg experiment F1=0 had, werd nu herkend (F1=0.13) 
 
-Beste aanpak: train model normaal, optimaliseer thresholds per klasse achteraf.
+Eindconclusie 
 
-**Resultaat:** Macro F1 = **0.7510** (+4.7% vs standaard)
-- Klasse 23: F1=0.18 met threshold 0.20 (eindelijk gedetecteerd!)
-- Klasse 30: F1=0.73 met threshold 0.65 (nu ⭐ status!)
-- Klasse 5: F1=0.60 met threshold 0.05
-- Klasse 24: F1=0.67 met threshold 0.40
+Dit onderzoek begon als een zoektocht naar “het beste model”, maar eindigde in een beslissingsdynamiek. Het probleem was nooit alleen data, of embeddings, of architectuur. Het echte probleem was dat zeldzame klassen structureel werden overschaduwd, niet omdat het model ze niet kon leren, maar omdat dominante klassen altijd de voorspelling opeisten. De doorbraak kwam niet door nóg een netwerk, maar door: 
 
-**Wat is threshold optimalisatie?**
-Normaal voorspelt het model: "als score > 0.5, dan is het deze klasse." Maar sommige klassen (zoals 23) krijgen nooit een score boven 0.5 — het model geeft 0.3 terwijl het eigenlijk correct is. Oplossing: per klasse een andere drempel kiezen. Het model verandert niet, alleen de beslissingsgrens per klasse.
+balans in representatie 
 
-## Experiment 16 — Threshold Hyperparameter Tuning
+begrensde oversampling 
 
-Systematisch thresholds tunen met ensemble van 5 modellen (5 epochs elk).
+en vooral: per-klasse beslissingsgrenzen 
 
-**Resultaat:** Macro F1 = **0.7595** (+3.9% vs standaard)
-- Ensemble van 5 snelle modellen stabiliseert voorspellingen
-- Thresholds geoptimaliseerd van 0.05 tot 0.85 per klasse
-- Klasse 24: F1=0.73 ⭐ (threshold 0.35)
-- Klasse 30: F1=0.75 ⭐ (threshold 0.60)
-- **31/31 klassen gedetecteerd!**
+ 
 
-## Experiment 17 — Ultimate Model ⭐⭐
-
-Combinatie van alle beste technieken:
-- Architectuur: [128,128] met BatchNorm, dropout=0.215
-- Optimizer: Adam lr=0.000301, StepLR scheduler
-- Ensemble: 5 modellen (100 epochs, early stop patience=15)
-- Thresholds: geoptimaliseerd per klasse
-
-**Resultaat:** Macro F1 = **0.7661** — BESTE SCORE! 🎉
-- Micro F1 = 0.9070
-- 4 perfecte klassen (F1=1.0): 2, 19, 22, 25
-- **31/31 klassen gedetecteerd**
-
-**Zwakke klassen vergeleken met E12:**
-| Klasse | E12 | E17 | Verbetering |
-|--------|-----|-----|-------------|
-| 5 | 0.53 | 0.60 | +0.07 |
-| 8 | 0.40 | 0.37 | -0.03 |
-| 21 | 0.48 | **0.58** | +0.10 |
-| **23** | **0.00** | **0.20** | **+0.20** |
-| 24 | 0.60 | 0.67 | +0.07 |
-| 26 | 0.17 | 0.17 | = |
-| 30 | 0.56 | **0.75** ⭐ | +0.19 |
-
-**Conclusie:** De combinatie van ensemble learning + threshold optimalisatie lost het probleem van "gestolen" voorspellingen op. Klasse 23 (altijd F1=0 in E01-E13) is nu detecteerbaar!
-
+ 
