@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vectormesh-fjm"
+version = "1.0.0"
+description = "Dutch legal document classification using neural embeddings and threshold optimization"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Florido Meacci", email = "florido.meacci@student.hu.nl"}
+]
+keywords = ["nlp", "legal", "classification", "pytorch", "embeddings"]
+
+dependencies = [
+    "torch>=2.0.0",
+    "datasets>=2.0.0",
+    "transformers>=4.30.0",
+    "scikit-learn>=1.3.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/floridomeacci/vectormesh-fjm"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
